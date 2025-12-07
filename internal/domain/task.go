@@ -1,0 +1,150 @@
+package domain
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// TaskStatus represents the current state of a task
+type TaskStatus string
+
+const (
+	TaskStatusQueued     TaskStatus = "queued"
+	TaskStatusProcessing TaskStatus = "processing"
+	TaskStatusCompleted  TaskStatus = "completed"
+	TaskStatusFailed     TaskStatus = "failed"
+	TaskStatusCancelled  TaskStatus = "cancelled"
+)
+
+// TaskPriority represents the priority level of a task
+type TaskPriority string
+
+const (
+	TaskPriorityHigh   TaskPriority = "high"
+	TaskPriorityMedium TaskPriority = "medium"
+	TaskPriorityLow    TaskPriority = "low"
+)
+
+// Task represents a unit of work in the distributed system
+type Task struct {
+	ID           uuid.UUID       `json:"id"`
+	Name         string          `json:"name"`
+	Payload      json.RawMessage `json:"payload"`
+	Priority     TaskPriority    `json:"priority"`
+	Status       TaskStatus      `json:"status"`
+	ScheduledAt  *time.Time      `json:"scheduled_at,omitempty"`
+	StartedAt    *time.Time      `json:"started_at,omitempty"`
+	CompletedAt  *time.Time      `json:"completed_at,omitempty"`
+	RetryCount   int             `json:"retry_count"`
+	MaxRetry     int             `json:"max_retry"`
+	ErrorMessage *string         `json:"error_message,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+// NewTask creates a new task instance with default values
+func NewTask(name string, payload json.RawMessage, priority TaskPriority, scheduledAt *time.Time) (*Task, error) {
+	if name == "" {
+		return nil, ErrInvalidTaskType
+	}
+	if len(payload) == 0 {
+		return nil, ErrEmptyPayload
+	}
+
+	validPriorities := map[TaskPriority]bool{
+		TaskPriorityHigh:   true,
+		TaskPriorityMedium: true,
+		TaskPriorityLow:    true,
+	}
+	if !validPriorities[priority] {
+		return nil, ErrInvalidPriority
+	}
+
+	return &Task{
+		ID:          uuid.New(),
+		Name:        name,
+		Payload:     payload,
+		Priority:    priority,
+		Status:      TaskStatusQueued,
+		ScheduledAt: scheduledAt,
+		MaxRetry:    3, // Default max retry, can be configured
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
+}
+
+// IsRetryable checks if the task can be retried
+func (t *Task) IsRetryable() bool {
+	return t.RetryCount < t.MaxRetry
+}
+
+// CanExecute checks if the task is ready to be processed
+func (t *Task) CanExecute() bool {
+	if t.Status != TaskStatusQueued {
+		return false
+	}
+	if t.ScheduledAt != nil && time.Now().Before(*t.ScheduledAt) {
+		return false
+	}
+	return true
+}
+
+// MarkAsProcessing transitions the task to processing state
+func (t *Task) MarkAsProcessing() error {
+	if t.Status != TaskStatusQueued && t.Status != TaskStatusFailed {
+		return ErrInvalidTaskStatus
+	}
+
+	now := time.Now()
+	t.Status = TaskStatusProcessing
+	t.StartedAt = &now
+	t.UpdatedAt = now
+	return nil
+}
+
+// MarkAsCompleted transitions the task to completed state
+func (t *Task) MarkAsCompleted() error {
+	if t.Status != TaskStatusProcessing {
+		return ErrInvalidTaskStatus
+	}
+
+	now := time.Now()
+	t.Status = TaskStatusCompleted
+	t.CompletedAt = &now
+	t.UpdatedAt = now
+	return nil
+}
+
+// MarkAsFailed transitions the task to failed state and handles retry logic
+func (t *Task) MarkAsFailed(errMsg string) error {
+	if t.Status != TaskStatusProcessing {
+		return ErrInvalidTaskStatus
+	}
+
+	now := time.Now()
+	t.RetryCount++
+	t.ErrorMessage = &errMsg
+	t.UpdatedAt = now
+
+	if t.IsRetryable() {
+		t.Status = TaskStatusFailed
+	} else {
+		t.Status = TaskStatusFailed
+	}
+
+	return nil
+}
+
+// MarkAsCancelled transitions the task to cancelled state
+func (t *Task) MarkAsCancelled() error {
+	if t.Status == TaskStatusCompleted {
+		return ErrInvalidTaskStatus
+	}
+
+	now := time.Now()
+	t.Status = TaskStatusCancelled
+	t.UpdatedAt = now
+	return nil
+}
