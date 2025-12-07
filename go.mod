@@ -1,4 +1,4 @@
-module mirage-boilerplate
+module distribute-task-sytem
 
 go 1.25.5
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
-	"mirage-boilerplate/internal/config"
+	"distribute-task-sytem/internal/config"
 )
 
 func NewPostgresDB(cfg config.DatabaseConfig) (*sql.DB, error) {

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
-	"mirage-boilerplate/internal/domain"
-	"mirage-boilerplate/internal/repository"
+	"distribute-task-sytem/internal/domain"
+	"distribute-task-sytem/internal/repository"
 )
 
 type healthService struct {

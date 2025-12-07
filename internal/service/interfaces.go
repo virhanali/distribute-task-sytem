@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"mirage-boilerplate/internal/domain"
+	"distribute-task-sytem/internal/domain"
 )
 
 type HealthService interface {

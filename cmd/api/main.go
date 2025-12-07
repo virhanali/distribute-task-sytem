@@ -9,12 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"mirage-boilerplate/internal/config"
-	"mirage-boilerplate/internal/database"
-	"mirage-boilerplate/internal/handler/health"
-	"mirage-boilerplate/internal/middleware"
-	"mirage-boilerplate/internal/repository"
-	"mirage-boilerplate/internal/service"
+	"distribute-task-sytem/internal/config"
+	"distribute-task-sytem/internal/database"
+	"distribute-task-sytem/internal/handler/health"
+	"distribute-task-sytem/internal/middleware"
+	"distribute-task-sytem/internal/repository"
+	"distribute-task-sytem/internal/service"
 )
 
 func main() {

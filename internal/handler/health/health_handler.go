@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mirage-boilerplate/internal/service"
+	"distribute-task-sytem/internal/service"
 )
 
 type HealthHandler struct {
