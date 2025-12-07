@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateTaskDTO represents the payload for creating a new task
 type CreateTaskDTO struct {
 	Name        string          `json:"name" validate:"required"`
 	Payload     json.RawMessage `json:"payload" validate:"required"`
@@ -15,7 +14,6 @@ type CreateTaskDTO struct {
 	ScheduledAt *time.Time      `json:"scheduled_at,omitempty"`
 }
 
-// Validation method for CreateTaskDTO
 func (d *CreateTaskDTO) Validate() error {
 	if d.Name == "" {
 		return ErrInvalidTaskType
@@ -31,12 +29,10 @@ func (d *CreateTaskDTO) Validate() error {
 	}
 }
 
-// CreateBulkTaskDTO represents the payload for bulk task creation
 type CreateBulkTaskDTO struct {
 	Tasks []CreateTaskDTO `json:"tasks" validate:"required,min=1"`
 }
 
-// TaskResponse represents the API response for a task
 type TaskResponse struct {
 	ID           uuid.UUID       `json:"id"`
 	Name         string          `json:"name"`
@@ -53,7 +49,6 @@ type TaskResponse struct {
 	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
-// BulkTaskResponse represents the API response for bulk operations
 type BulkTaskResponse struct {
 	SuccessCount int            `json:"success_count"`
 	FailureCount int            `json:"failure_count"`
@@ -61,7 +56,6 @@ type BulkTaskResponse struct {
 	Errors       []string       `json:"errors,omitempty"`
 }
 
-// TaskMetrics represents the aggregated statistics of tasks
 type TaskMetrics struct {
 	Total      int `json:"total"`
 	Queued     int `json:"queued"`
@@ -71,7 +65,6 @@ type TaskMetrics struct {
 	Cancelled  int `json:"cancelled"`
 }
 
-// ToResponse converts a domain Task entity to TaskResponse
 func (t *Task) ToResponse() TaskResponse {
 	return TaskResponse{
 		ID:           t.ID,

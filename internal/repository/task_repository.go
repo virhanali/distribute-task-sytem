@@ -62,7 +62,6 @@ func (r *PostgresTaskRepository) BulkInsert(ctx context.Context, tasks []*domain
 		)
 	`
 
-	// Process in batches
 	for i := 0; i < len(tasks); i += batchSize {
 		end := i + batchSize
 		if end > len(tasks) {
@@ -128,10 +127,6 @@ func (r *PostgresTaskRepository) UpdateStatus(ctx context.Context, id uuid.UUID,
 func (r *PostgresTaskRepository) FindPendingTasks(ctx context.Context, limit int) ([]*domain.Task, error) {
 	tasks := []*domain.Task{}
 
-	// Pending tasks logic:
-	// 1. Status is Queued OR (Failed but retryable)
-	// 2. ScheduledAt is NULL OR ScheduledAt <= Now
-	// Sort by Priority (High > Medium > Low), then CreatedAt
 	query := `
 		SELECT * FROM tasks 
 		WHERE (status = 'queued' OR (status = 'failed' AND retry_count < max_retry))
@@ -170,15 +165,7 @@ func (r *PostgresTaskRepository) GetMetrics(ctx context.Context) (*domain.TaskMe
 		FROM tasks
 	`
 
-	// Since we are mapping to a struct that doesn't have db tags matching this exact query output
-	// we will likely need to scan manually or define a temporary struct.
-	// sqlx can map standard columns, but COUNT expressions needs aliases.
-	// The struct fields are Start Case, db is usually snake_case.
-	// Let's rely on explicit struct scan or simple logic.
-	// Actually domain.TaskMetrics has json tags but not db tags.
-	// Let's add db tags to the query aliases if possible or use a temp struct.
 
-	// Better approach: Use a row scan.
 	row := r.db.QueryRowContext(ctx, query)
 	err := row.Scan(
 		&metrics.Total,

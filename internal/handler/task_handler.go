@@ -23,17 +23,6 @@ func NewTaskHandler(service *service.TaskService, logger zerolog.Logger) *TaskHa
 	}
 }
 
-// CreateTask godoc
-// @Summary Create a new task
-// @Description Create a new task with payload and priority
-// @Tags tasks
-// @Accept json
-// @Produce json
-// @Param task body domain.CreateTaskDTO true "Task Request"
-// @Success 201 {object} SuccessResponse{data=domain.TaskResponse}
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tasks [post]
 func (h *TaskHandler) CreateTask(c *gin.Context) {
 	var dto domain.CreateTaskDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
@@ -52,17 +41,6 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 	c.JSON(http.StatusCreated, NewSuccessResponse(task.ToResponse()))
 }
 
-// CreateBulkTask godoc
-// @Summary Create multiple tasks
-// @Description Create multiple tasks in bulk
-// @Tags tasks
-// @Accept json
-// @Produce json
-// @Param tasks body domain.CreateBulkTaskDTO true "Bulk Task Request"
-// @Success 201 {object} SuccessResponse{data=domain.BulkTaskResponse}
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tasks/bulk [post]
 func (h *TaskHandler) CreateBulkTask(c *gin.Context) {
 	var dto domain.CreateBulkTaskDTO
 	if err := c.ShouldBindJSON(&dto); err != nil {
@@ -80,17 +58,6 @@ func (h *TaskHandler) CreateBulkTask(c *gin.Context) {
 	c.JSON(http.StatusCreated, NewSuccessResponse(resp))
 }
 
-// GetTask godoc
-// @Summary Get task by ID
-// @Description Get details of a specific task
-// @Tags tasks
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 200 {object} SuccessResponse{data=domain.TaskResponse}
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tasks/{id} [get]
 func (h *TaskHandler) GetTask(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
@@ -113,17 +80,6 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 	c.JSON(http.StatusOK, NewSuccessResponse(task.ToResponse()))
 }
 
-// CancelTask godoc
-// @Summary Cancel a task
-// @Description Cancel a pending or processing task
-// @Tags tasks
-// @Produce json
-// @Param id path string true "Task ID"
-// @Success 200 {object} SuccessResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tasks/{id} [delete]
 func (h *TaskHandler) CancelTask(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)
@@ -150,14 +106,6 @@ func (h *TaskHandler) CancelTask(c *gin.Context) {
 	c.JSON(http.StatusOK, NewSuccessResponse(nil))
 }
 
-// GetMetrics godoc
-// @Summary Get task metrics
-// @Description Get aggregated metrics of tasks
-// @Tags metrics
-// @Produce json
-// @Success 200 {object} SuccessResponse{data=domain.TaskMetrics}
-// @Failure 500 {object} ErrorResponse
-// @Router /metrics [get]
 func (h *TaskHandler) GetMetrics(c *gin.Context) {
 	metrics, err := h.service.GetMetrics(c.Request.Context())
 	if err != nil {

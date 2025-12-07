@@ -3,7 +3,6 @@ package domain
 import "errors"
 
 var (
-	// Task Errors
 	ErrTaskNotFound      = errors.New("task not found")
 	ErrTaskAlreadyExists = errors.New("task already exists")
 	ErrInvalidTaskStatus = errors.New("invalid task status transition")

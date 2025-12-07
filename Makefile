@@ -1,17 +1,21 @@
-.PHONY: run build test tidy docker-up docker-down docker-logs migrate-up migrate-down
+.PHONY: run-api run-worker build test tidy docker-up docker-down docker-logs migrate-up migrate-down migrate-create
 
-# Load .env file if it exists
 -include .env
 
-# Default DSN for local migration commands (running on host, connection to localhost:5432)
-# This overrides the one in .env if it uses the service name 'postgres'
 DB_DSN ?= postgres://taskuser:taskpass@localhost:5432/taskdb?sslmode=disable
 
-run:
+run: run-api
+
+run-api:
 	go run cmd/api/main.go
 
+run-worker:
+	go run cmd/worker/main.go
+
 build:
+	mkdir -p bin
 	go build -o bin/api cmd/api/main.go
+	go build -o bin/worker cmd/worker/main.go
 
 test:
 	go test -v ./...
@@ -19,9 +23,11 @@ test:
 tidy:
 	go mod tidy
 
-# Docker Compose Commands
 docker-up:
 	docker-compose up -d --remove-orphans
+
+infra-up:
+	docker-compose up -d postgres redis rabbitmq minio
 
 docker-down:
 	docker-compose down
@@ -29,8 +35,6 @@ docker-down:
 docker-logs:
 	docker-compose logs -f
 
-# Database Migration Commands
-# Requires https://github.com/golang-migrate/migrate
 migrate-up:
 	migrate -path migrations -database "$(DB_DSN)" up
 
@@ -40,3 +44,8 @@ migrate-down:
 migrate-create:
 	@read -p "Enter migration name: " name; \
 	migrate create -ext sql -dir migrations -seq $$name
+
+clean:
+	rm -rf bin
+	go clean
+	docker-compose down -v --remove-orphans

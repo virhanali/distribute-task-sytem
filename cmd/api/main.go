@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,83 +10,118 @@ import (
 	"time"
 
 	"distribute-task-sytem/internal/config"
-	"distribute-task-sytem/internal/database"
-	"distribute-task-sytem/internal/handler/health"
-	"distribute-task-sytem/internal/middleware"
+	"distribute-task-sytem/internal/handler"
+	"distribute-task-sytem/internal/queue"
 	"distribute-task-sytem/internal/repository"
 	"distribute-task-sytem/internal/service"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // Import pgx driver for sqlx
+	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	cfg := config.Load()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 
-	setupLogger(cfg.App.Env)
-
-	db, err := database.NewPostgresDB(cfg.Database)
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		slog.Error("Failed to initialize database", "error", err)
-		os.Exit(1)
+		log.Fatal().Err(err).Msg("failed to load config")
+	}
+
+	setLogLevel(cfg.Log.Level)
+
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.DBName,
+		cfg.Database.SSLMode,
+	)
+
+	db, err := sqlx.Connect("pgx", dsn)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to connect to database")
 	}
 	defer db.Close()
 
-	// Dependency Injection
-	healthRepo := repository.NewHealthRepository(db)
+	if err := db.Ping(); err != nil {
+		log.Fatal().Err(err).Msg("failed to ping database")
+	}
+	log.Info().Msg("connected to database")
 
-	healthService := service.NewHealthService(healthRepo)
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatal().Err(err).Msg("failed to connect to redis")
+	}
+	defer rdb.Close()
+	log.Info().Msg("connected to redis")
 
-	healthHandler := health.NewHealthHandler(healthService)
+	publisher, err := queue.NewRabbitMQPublisher(cfg.RabbitMQ.URL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to setup rabbitmq publisher")
+	}
+	defer publisher.Close()
+	log.Info().Msg("connected to rabbitmq publisher")
 
-	mux := http.NewServeMux()
+	taskRepo := repository.NewTaskRepository(db)
+	redisQueue := queue.NewRedisQueue(rdb)
 
-	// Register Routes
-	mux.HandleFunc("GET /health", healthHandler.Check)
-	mux.HandleFunc("GET /api/v1/health", healthHandler.Check)
+	taskService := service.NewTaskService(taskRepo, redisQueue, publisher, log.Logger)
+	taskHandler := handler.NewTaskHandler(taskService, log.Logger)
 
-	handler := middleware.Logger(mux)
+	router := handler.SetupRouter(handler.RouterConfig{
+		TaskHandler: taskHandler,
+		Logger:      log.Logger,
+	})
 
-	server := &http.Server{
-		Addr:         ":" + cfg.App.Port,
-		Handler:      handler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	serverAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	srv := &http.Server{
+		Addr:    serverAddr,
+		Handler: router,
 	}
 
 	go func() {
-		slog.Info("Starting server", "port", cfg.App.Port, "env", cfg.App.Env)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Server failed to start", "error", err)
-			os.Exit(1)
+		log.Info().Str("addr", serverAddr).Msg("starting http server")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("failed to start server")
 		}
 	}()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	slog.Info("Server is shutting down...")
+	log.Info().Msg("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
-		slog.Error("Server forced to shutdown", "error", err)
-		os.Exit(1)
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("server forced to shutdown")
 	}
 
-	slog.Info("Server exited properly")
+	log.Info().Msg("server exited")
 }
 
-func setupLogger(env string) {
-	var handler slog.Handler
-	if env == "production" {
-		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-	} else {
-		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		})
+func setLogLevel(level string) {
+	switch level {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
-	slog.SetDefault(slog.New(handler))
 }

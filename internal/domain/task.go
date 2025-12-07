@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// TaskStatus represents the current state of a task
 type TaskStatus string
 
 const (
@@ -18,7 +17,6 @@ const (
 	TaskStatusCancelled  TaskStatus = "cancelled"
 )
 
-// TaskPriority represents the priority level of a task
 type TaskPriority string
 
 const (
@@ -27,7 +25,6 @@ const (
 	TaskPriorityLow    TaskPriority = "low"
 )
 
-// Task represents a unit of work in the distributed system
 type Task struct {
 	ID           uuid.UUID       `json:"id" db:"id"`
 	Name         string          `json:"name" db:"name"`
@@ -44,7 +41,6 @@ type Task struct {
 	UpdatedAt    time.Time       `json:"updated_at" db:"updated_at"`
 }
 
-// NewTask creates a new task instance with default values
 func NewTask(name string, payload json.RawMessage, priority TaskPriority, scheduledAt *time.Time) (*Task, error) {
 	if name == "" {
 		return nil, ErrInvalidTaskType
@@ -75,12 +71,10 @@ func NewTask(name string, payload json.RawMessage, priority TaskPriority, schedu
 	}, nil
 }
 
-// IsRetryable checks if the task can be retried
 func (t *Task) IsRetryable() bool {
 	return t.RetryCount < t.MaxRetry
 }
 
-// CanExecute checks if the task is ready to be processed
 func (t *Task) CanExecute() bool {
 	if t.Status != TaskStatusQueued {
 		return false
@@ -91,7 +85,6 @@ func (t *Task) CanExecute() bool {
 	return true
 }
 
-// MarkAsProcessing transitions the task to processing state
 func (t *Task) MarkAsProcessing() error {
 	if t.Status != TaskStatusQueued && t.Status != TaskStatusFailed {
 		return ErrInvalidTaskStatus
@@ -104,7 +97,6 @@ func (t *Task) MarkAsProcessing() error {
 	return nil
 }
 
-// MarkAsCompleted transitions the task to completed state
 func (t *Task) MarkAsCompleted() error {
 	if t.Status != TaskStatusProcessing {
 		return ErrInvalidTaskStatus
@@ -117,7 +109,6 @@ func (t *Task) MarkAsCompleted() error {
 	return nil
 }
 
-// MarkAsFailed transitions the task to failed state and handles retry logic
 func (t *Task) MarkAsFailed(errMsg string) error {
 	if t.Status != TaskStatusProcessing {
 		return ErrInvalidTaskStatus
@@ -137,7 +128,6 @@ func (t *Task) MarkAsFailed(errMsg string) error {
 	return nil
 }
 
-// MarkAsCancelled transitions the task to cancelled state
 func (t *Task) MarkAsCancelled() error {
 	if t.Status == TaskStatusCompleted {
 		return ErrInvalidTaskStatus

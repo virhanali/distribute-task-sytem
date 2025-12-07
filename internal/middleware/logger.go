@@ -10,9 +10,6 @@ func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// Use a response wrapper to capture the status code if needed,
-		// but for simplicity in a boilerplate, we might just log the request start/end.
-		// A proper implementation would wrap ResponseWriter.
 
 		wrapper := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 

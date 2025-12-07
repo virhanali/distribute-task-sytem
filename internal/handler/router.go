@@ -11,7 +11,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// RateLimiter manages rate limits per IP
 type RateLimiter struct {
 	ips map[string]*rate.Limiter
 	mu  *sync.RWMutex
@@ -41,22 +40,17 @@ func (i *RateLimiter) GetLimiter(ip string) *rate.Limiter {
 	return limiter
 }
 
-// RouterConfig holds the dependencies for the router
 type RouterConfig struct {
 	TaskHandler *TaskHandler
 	Logger      zerolog.Logger
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
-	// Set Gin mode based on env, defaulting to release for performance if not specified
-	// gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 
-	// 1. Recovery Middleware
 	r.Use(gin.Recovery())
 
-	// 2. Custom Logger Middleware with Zerolog
 	r.Use(func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
@@ -78,7 +72,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			Msg("request processed")
 	})
 
-	// 3. CORS Middleware
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -88,8 +81,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 4. Rate Limiting Middleware (100 req/min = ~1.66 req/sec, burst 5)
-	// We'll use 1.66/s refill rate.
 	limiter := NewRateLimiter(rate.Limit(100.0/60.0), 5)
 	r.Use(func(c *gin.Context) {
 		l := limiter.GetLimiter(c.ClientIP())
@@ -100,7 +91,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		c.Next()
 	})
 
-	// Define Routes
 	api := r.Group("/api/v1")
 	{
 		tasks := api.Group("/tasks")
@@ -114,7 +104,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		api.GET("/metrics", cfg.TaskHandler.GetMetrics)
 	}
 
-	// Separate health check endpoint usually goes to root or dedicated path
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})

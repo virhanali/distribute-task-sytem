@@ -66,34 +66,29 @@ func (p *RabbitMQPublisher) connect() error {
 	var err error
 	log.Info().Msg("connecting to existing rabbitmq connection")
 
-	// 1. Create Connection
 	p.conn, err = amqp.Dial(p.url)
 	if err != nil {
 		return fmt.Errorf("failed to connect to rabbitmq: %w", err)
 	}
 
-	// 2. Create Channel
 	p.ch, err = p.conn.Channel()
 	if err != nil {
 		p.conn.Close()
 		return fmt.Errorf("failed to open channel: %w", err)
 	}
 
-	// 3. Setup Topology (Exchange and Queues)
 	if err := p.setupTopology(); err != nil {
 		p.ch.Close()
 		p.conn.Close()
 		return err
 	}
 
-	// 4. Enable Publisher Confirms
 	if err := p.ch.Confirm(false); err != nil {
 		p.ch.Close()
 		p.conn.Close()
 		return fmt.Errorf("failed to enable publisher confirms: %w", err)
 	}
 
-	// 5. Handle Reconnection
 	p.notifyChan = make(chan *amqp.Error)
 	p.conn.NotifyClose(p.notifyChan)
 
@@ -103,7 +98,6 @@ func (p *RabbitMQPublisher) connect() error {
 }
 
 func (p *RabbitMQPublisher) setupTopology() error {
-	// Declare Exchange
 	err := p.ch.ExchangeDeclare(
 		ExchangeName, // name
 		ExchangeType, // type
@@ -117,7 +111,6 @@ func (p *RabbitMQPublisher) setupTopology() error {
 		return fmt.Errorf("failed to declare exchange: %w", err)
 	}
 
-	// Declare and Bind Queues
 	queues := map[string]string{
 		QueueHigh:   RoutingKeyHigh,
 		QueueMedium: RoutingKeyMedium,
@@ -184,7 +177,6 @@ func (p *RabbitMQPublisher) publishWithRetry(ctx context.Context, task *domain.T
 	p.mu.RLock()
 	if p.conn == nil || p.conn.IsClosed() {
 		p.mu.RUnlock()
-		// Wait for reconnection or force failure
 		if retries < PublishMaxRetries {
 			time.Sleep(time.Duration(math.Pow(2, float64(retries))) * time.Second)
 			return p.publishWithRetry(ctx, task, retries+1)
@@ -206,12 +198,6 @@ func (p *RabbitMQPublisher) publishWithRetry(ctx context.Context, task *domain.T
 
 	routingKey := getRoutingKey(task.Priority)
 
-	// Create Confirmation Channel for this single publish
-	// Note: For high throughput, we shouldn't do this per message.
-	// But requirement asks for "Publisher confirms".
-	// The robust way is enabling it globally and listening to NotifyPublish,
-	// OR using PublishWithDeferredConfirm (if available) or wait for confirmation.
-	// Simple way:
 	confirmation, err := ch.PublishWithDeferredConfirmWithContext(
 		ctx,
 		ExchangeName,
@@ -236,7 +222,6 @@ func (p *RabbitMQPublisher) publishWithRetry(ctx context.Context, task *domain.T
 		return err
 	}
 
-	// Wait for ack
 	ok := confirmation.Wait()
 	if !ok {
 		return errors.New("failed to key publisher confirmation from rabbitmq")
@@ -248,8 +233,6 @@ func (p *RabbitMQPublisher) publishWithRetry(ctx context.Context, task *domain.T
 func (p *RabbitMQPublisher) PublishBatch(ctx context.Context, tasks []*domain.Task) error {
 	for _, task := range tasks {
 		if err := p.Publish(ctx, task); err != nil {
-			// On batch failure, we can stop and return error, or try best effort.
-			// Returning error on first failure is safer provided idempotency exists downstream.
 			return fmt.Errorf("failed to publish task %s: %w", task.ID, err)
 		}
 	}

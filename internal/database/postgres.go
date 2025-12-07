@@ -7,12 +7,13 @@ import (
 	"log/slog"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 	"distribute-task-sytem/internal/config"
+
+	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 )
 
 func NewPostgresDB(cfg config.DatabaseConfig) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.DSN)
+	db, err := sql.Open("pgx", cfg.FormatDSN())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
