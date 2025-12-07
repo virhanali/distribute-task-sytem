@@ -29,19 +29,19 @@ const (
 
 // Task represents a unit of work in the distributed system
 type Task struct {
-	ID           uuid.UUID       `json:"id"`
-	Name         string          `json:"name"`
-	Payload      json.RawMessage `json:"payload"`
-	Priority     TaskPriority    `json:"priority"`
-	Status       TaskStatus      `json:"status"`
-	ScheduledAt  *time.Time      `json:"scheduled_at,omitempty"`
-	StartedAt    *time.Time      `json:"started_at,omitempty"`
-	CompletedAt  *time.Time      `json:"completed_at,omitempty"`
-	RetryCount   int             `json:"retry_count"`
-	MaxRetry     int             `json:"max_retry"`
-	ErrorMessage *string         `json:"error_message,omitempty"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID           uuid.UUID       `json:"id" db:"id"`
+	Name         string          `json:"name" db:"name"`
+	Payload      json.RawMessage `json:"payload" db:"payload"`
+	Priority     TaskPriority    `json:"priority" db:"priority"`
+	Status       TaskStatus      `json:"status" db:"status"`
+	ScheduledAt  *time.Time      `json:"scheduled_at,omitempty" db:"scheduled_at"`
+	StartedAt    *time.Time      `json:"started_at,omitempty" db:"started_at"`
+	CompletedAt  *time.Time      `json:"completed_at,omitempty" db:"completed_at"`
+	RetryCount   int             `json:"retry_count" db:"retry_count"`
+	MaxRetry     int             `json:"max_retry" db:"max_retry"`
+	ErrorMessage *string         `json:"error_message,omitempty" db:"error_message"`
+	CreatedAt    time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at" db:"updated_at"`
 }
 
 // NewTask creates a new task instance with default values
